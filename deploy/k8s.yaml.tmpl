@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: $APP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: $DOMAIN
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: $ACM_CERT
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "https"
+  labels:
+    app: $APP
+  name: ${APP}-svc
+  namespace: $APP
+spec:
+  type: LoadBalancer
+  loadBalancerSourceRanges: $ALLOWLIST_CIDRS
+  ports:
+  - name: http
+    port: 80
+    targetPort: $POD_LISTEN_PORT
+  - name: https
+    port: 443
+    targetPort: $POD_LISTEN_PORT
+  selector:
+    app: $APP
+  sessionAffinity: None
+  externalTrafficPolicy: Cluster
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: $APP
+    namespace: $APP
+  name: $APP
+  namespace: $APP
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: $APP
+  template:
+    metadata:
+      labels:
+        app: $APP
+        namespace: $APP
+    spec:
+      containers:
+      - env:
+        - name: DUCK_ADDR
+          value: ':${POD_LISTEN_PORT}'
+        image: $DOCKER_IMAGE
+        imagePullPolicy: IfNotPresent
+        name: $APP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: $POD_LISTEN_PORT
+          initialDelaySeconds: 3
+          periodSeconds: 3
+        ports:
+        - containerPort: $POD_LISTEN_PORT
+          protocol: TCP
+        resources:
+          requests:
+            cpu: $RESOURCE_REQUEST_CPU
+            memory: $RESOURCE_REQUEST_MEM
+          limits:
+            cpu: $RESOURCE_LIMIT_CPU
+            memory: $RESOURCE_LIMIT_MEM
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ${APP}-autoscaler
+  namespace: $APP
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: $APP
+  minReplicas: $MIN_REPLICAS
+  maxReplicas: $MAX_REPLICAS
+  targetCPUUtilizationPercentage: $TARGET_CPU_UTIL

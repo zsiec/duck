@@ -1,0 +1,74 @@
+Review:
+  -> Server setup
+    -> Run locally
+
+  -> Deployment script
+    -> Makefile
+
+  -> K8s
+    -> Namespace
+    -> Service
+      -> http/https
+      -> firewall
+    -> Deployment
+      -> Image
+      -> Env
+      -> Healthcheck
+      -> Networking
+      -> Resource limits/requests
+    -> Autosclaing
+
+  -> Deploy
+    -> k9s review svc, deployment, pods(logs, ssh), hpa
+    -> AWS console resources (LB, route53, cloudwatch logs)
+    -> make changes and redeploy
+
+  -> NewRelic
+    -> Logs
+    -> Dashboard
+
+  -> Load testing
+
+  -> Destroy
+
+
+New Relic
+
+SELECT count(*) as 'quacks' FROM Log where svc = 'duck' and message = 'served request' and url != '/healthz'
+
+# of quacks
+SELECT count(*) as 'quacks' FROM Log where svc = 'duck' and message = 'served request' and url != '/healthz' TIMESERIES AUTO 
+
+# requests by status
+SELECT count(*) from Log where svc='duck' and status is NOT NULL FACET status TIMESERIES AUTO 
+
+latency percentiles
+SELECT percentile(duration, 50, 80, 90, 95, 99, 100) as 'duration (ms)' from Log where svc = 'duck' and duration is NOT NULL TIMESERIES AUTO 
+
+top successful requests by url
+SELECT count(*) from Log where svc = 'duck' and url is NOT NULL and status < 399 facet url limit 100
+
+top requests by user agent
+SELECT count(*) from Log where svc = 'duck' and useragent is NOT NULL facet useragent limit 100
+
+% cpu used/requested
+SELECT average(cpuUsedCores)/average(cpuRequestedCores)*100 from K8sContainerSample WHERE containerName ='duck' facet podName TIMESERIES AUTO  
+
+% memory used/requested
+SELECT average(memoryUsedBytes)/average(memoryRequestedBytes)*100 from K8sContainerSample WHERE containerName ='duck' FACET podName TIMESERIES AUTO 
+
+network in/out
+SELECT sum(numeric(size)) as 'sent bytes', sum(numeric(req_length)) as 'recv bytes' from Log where svc = 'duck' TIMESERIES AUTO 
+
+
+Load
+hey -n 1000000 -c 100000 https://duck.dev.cbsi.video
+
+
+setup kubectl
+
+https://kubernetes.io/docs/tasks/tools/install-kubectl/
+or
+brew install kubectl
+
+aws --region us-east-1 eks update-kubeconfig --name=vpt-eks-dev
