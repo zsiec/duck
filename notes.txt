@@ -71,4 +71,4 @@ https://kubernetes.io/docs/tasks/tools/install-kubectl/
 or
 brew install kubectl
 
-aws --region us-east-1 eks update-kubeconfig --name=vpt-eks-dev
+aws --region us-east-1 eks update-kubeconfig --name=some-cluster-name
